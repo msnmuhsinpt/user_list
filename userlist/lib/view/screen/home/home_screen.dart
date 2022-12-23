@@ -1,48 +1,29 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:hive_flutter/adapters.dart';
+import 'package:userlist/data/arg/user_arg.dart';
+import 'package:userlist/data/model/user_model.dart';
 import 'package:userlist/data/service/apiservice.dart';
+import 'package:userlist/db/hive/model/hive_db.dart';
 import 'package:userlist/util/app_color.dart';
 import 'package:userlist/util/app_constant.dart';
 import 'package:userlist/view/screen/home/bloc/user_bloc.dart';
 import 'package:userlist/view/widget/app_text_view.dart';
 
-import '../../../data/api/user_reponse.dart';
+import '../../../db/hive/boxes.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  //bloc
-  late UserBloc userBloc;
-  //model list
-  List<Datum> userList = [];
-
-  //data base
-  bool isNotAddtoDataBase = true;
-
-  @override
-  void initState() {
-    super.initState();
-    userBloc = UserBloc(RepositoryProvider.of<APIService>(context));
-
-    userBloc.add(const UserApiEvent());
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    EasyLoading.dismiss();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    //model list
+    List<UserModel> userList = [];
+    //bloc
+    final userBloc = UserBloc(RepositoryProvider.of<APIService>(context));
+    //call event
+    userBloc.add(const UserApiEvent());
     return RepositoryProvider(
       create: (context) => userBloc,
       child: Scaffold(
@@ -59,64 +40,65 @@ class _HomeScreenState extends State<HomeScreen> {
         body: SingleChildScrollView(
           child: Padding(
             padding: commonPaddingAll,
-            child: BlocConsumer<UserBloc, UserState>(
+            child: BlocListener<UserBloc, UserState>(
               listener: (context, state) {
+                if (state is UserLoadingState) {
+                  Fluttertoast.showToast(
+                      msg: "Loading....",
+                      backgroundColor: AppColor.kBlack,
+                      textColor: AppColor.kWhite,
+                      fontSize: 15.0);
+                }
                 if (state is UserLoadedState) {
-                  if (state.response.data.isNotEmpty) {
-                    userList.addAll(state.response.data);
+                  for (int i = 0; i < state.response.data.length; i++) {
+                    var data = state.response.data[i];
+                    //add to list
+                    userList.add(
+                      UserModel(
+                        id: data.id.toString(),
+                        firstName: data.firstName.toString(),
+                        lastName: data.lastName.toString(),
+                        email: data.email.toString(),
+                        avatar: data.avatar.toString(),
+                      ),
+                    );
+                    //add to hive
+                    final users = User()
+                      ..id = data.id.toString()
+                      ..firstName = data.firstName.toString()
+                      ..lastName = data.lastName.toString()
+                      ..email = data.email.toString()
+                      ..avatar = data.avatar.toString();
+
+                    final box = Boxes.getData();
+                    box.add(users);
                   }
                 }
               },
-              builder: (context, state) {
-                if (state is UserInitialState) {
-                  return const CircularProgressIndicator();
-                }
-                if (state is UserLoadingState) {
-                  return const CircularProgressIndicator();
-                }
-                if (state is UserLoadedState) {
-                  return homeUIWidget(userList, isNotAddtoDataBase);
-                }
-                if (state is NoInternetState) {
-                  return const CircularProgressIndicator();
-                }
-                if (state is UnAuthorizedState) {
-                  //authorization
-                  /// please logout
-                }
-                if (state is ErrorState) {
-                  //error
-                  ///404 case
-                }
-                return Container();
-              },
+              child: ValueListenableBuilder<Box<User>>(
+                valueListenable: Boxes.getData().listenable(),
+                builder: (context, box, _) {
+                  final userValue = box.values.toList().cast<User>();
+                  return homeUIWidget(userValue);
+                },
+              ),
             ),
           ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            setState(() {
-              isNotAddtoDataBase = false;
-            });
-          },
-          label: appTextView(
-              name: 'ADD TO DB', isBold: true, color: AppColor.kWhite),
         ),
       ),
     );
   }
 
-  Column homeUIWidget(List<Datum> userList, bool isNotAddtoDataBase) {
+  Column homeUIWidget(List<User> userValue) {
     return Column(
       children: [
         ListView.separated(
           shrinkWrap: true,
           physics: const ClampingScrollPhysics(),
-          itemCount: 4,
+          itemCount: userValue.length,
           separatorBuilder: (context, index) => dividerSH(),
           itemBuilder: (context, index) {
-            var data = userList[index];
+            var data = userValue[index];
             String id = data.id.toString();
             String firstName = data.firstName.toString();
             String image = data.avatar.toString();
@@ -124,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
             String email = data.email.toString();
             return InkWell(
               child: Container(
+                height: 100,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(5),
                   border: Border.all(width: 0.2),
@@ -136,11 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(45),
-                        child: Image.network(
-                          image,
-                          height: 90,
-                          fit: BoxFit.cover,
-                        ),
+                        child: Image.network(image),
                       ),
                       dividerW(),
                       dividerW(),
@@ -150,9 +129,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               onTap: () {
-                isNotAddtoDataBase
-                    ? EasyLoading.showToast('Plase Add to Database')
-                    : Navigator.pushNamed(context, '/details');
+                Navigator.pushNamed(
+                  context,
+                  '/details',
+                  arguments: UserArg(
+                      id: id,
+                      fistName: firstName,
+                      lastName: lastName,
+                      email: email,
+                      avatar: image),
+                );
               },
             );
           },

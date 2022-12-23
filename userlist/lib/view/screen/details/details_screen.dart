@@ -4,7 +4,19 @@ import 'package:userlist/util/app_constant.dart';
 import 'package:userlist/view/widget/app_text_view.dart';
 
 class DetailsScreen extends StatelessWidget {
-  const DetailsScreen({super.key});
+  final String id;
+  final String fistName;
+  final String lastName;
+  final String email;
+  final String avatar;
+
+  const DetailsScreen(
+      {required this.id,
+      required this.fistName,
+      required this.lastName,
+      required this.email,
+      required this.avatar,
+      super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,14 +35,18 @@ class DetailsScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             dividerH(),
-            CircleAvatar(
-              radius: 70,
-              backgroundColor: AppColor.kBlue.withOpacity(0.5),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: Image.network(
+                avatar,
+                fit: BoxFit.cover,
+                height: 150,
+              ),
             ),
             dividerH(),
-            appTextView(name: 'Name :   Muhammed Muhsin PT', isBold: true),
+            appTextView(name: 'Name :   $fistName' '$lastName', isBold: true),
             dividerSH(),
-            appTextView(name: 'Email :   msnmuhsin83@gmail.com', isBold: true),
+            appTextView(name: 'Email :   $email', isBold: true),
           ],
         ),
       ),

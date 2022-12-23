@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:userlist/data/arg/user_arg.dart';
 import 'package:userlist/view/screen/details/details_screen.dart';
 import 'package:userlist/view/screen/home/home_screen.dart';
 
@@ -17,7 +18,15 @@ Route onGenerateRoute(RouteSettings settings) {
       page = CupertinoPageRoute(builder: (context) => const HomeScreen());
       break;
     case "/details":
-      page = CupertinoPageRoute(builder: (context) => const DetailsScreen());
+      final arguments = settings.arguments as UserArg;
+      page = CupertinoPageRoute(
+          builder: (context) => DetailsScreen(
+                id: arguments.id,
+                fistName: arguments.fistName,
+                lastName: arguments.lastName,
+                email: arguments.email,
+                avatar: arguments.avatar,
+              ));
       break;
   }
 
